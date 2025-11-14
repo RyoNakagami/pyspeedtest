@@ -40,7 +40,7 @@
 #   Modifications Copyright 2025 Ryo Nakagami
 # -----------------------------------------------------------------------------
 
-
+import time
 import datetime
 import math
 import os
@@ -73,8 +73,6 @@ from queue import Queue
 from urllib.parse import urlparse, parse_qs
 from hashlib import md5
 from io import StringIO, BytesIO
-import builtins
-from io import TextIOWrapper, FileIO
 import ssl
 import typer
 from typing import List, Optional, Tuple
@@ -108,40 +106,6 @@ PARSER_TYPE_STR = str
 PARSER_TYPE_FLOAT = float
 etree_iter = ET.Element.iter
 thread_is_alive = threading.Thread.is_alive
-
-
-class _Py3Utf8Output(TextIOWrapper):
-    """UTF-8 encoded wrapper around stdout for py3, to override
-    ASCII stdout
-    """
-
-    def __init__(self, f, **kwargs):
-        buf = FileIO(f.fileno(), "w")
-        super(_Py3Utf8Output, self).__init__(buf, encoding="utf8", errors="strict")
-
-    def write(self, s):
-        super(_Py3Utf8Output, self).write(s)
-        self.flush()
-
-
-_py3_print = getattr(builtins, "print")
-
-_py3_utf8_stdout = _Py3Utf8Output(sys.stdout)
-_py3_utf8_stderr = _Py3Utf8Output(sys.stderr)
-
-
-def to_utf8(v):
-    """No-op encode to utf-8 for py3"""
-    return v
-
-
-def print_(*args, **kwargs):
-    """Wrapper function for py3 to print, with a utf-8 encoded stdout"""
-    if kwargs.get("file") == sys.stderr:
-        kwargs["file"] = _py3_utf8_stderr
-    else:
-        kwargs["file"] = kwargs.get("file", _py3_utf8_stdout)
-    _py3_print(*args, **kwargs)
 
 
 # Exception "constants" to support Python 2 through Python 3
@@ -690,7 +654,7 @@ class HTTPDownloader(threading.Thread):
         self.request = request
         self.result = [0]
         self.starttime = start
-        self.timeout = timeout
+        self.timeout: int = timeout
         self.i = i
         if opener:
             self._opener = opener.open
@@ -982,7 +946,7 @@ class Speedtest(object):
         self,
         config=None,
         source_address=None,
-        timeout=10,
+        timeout: int = 10,
         secure=False,
         shutdown_event=None,
     ):
@@ -1068,10 +1032,20 @@ class Speedtest(object):
                 raise SpeedtestConfigError(
                     "Malformed speedtest.net configuration: %s" % e
                 )
-            server_config = root.find("server-config").attrib
-            download = root.find("download").attrib
-            upload = root.find("upload").attrib
-            client = root.find("client").attrib
+            server_config_elem = root.find("server-config")
+            download_elem = root.find("download")
+            upload_elem = root.find("upload")
+            client_elem = root.find("client")
+
+            if server_config_elem is None or download_elem is None or upload_elem is None or client_elem is None:
+                raise SpeedtestConfigError(
+                    "Missing required configuration elements in speedtest.net configuration"
+                )
+
+            server_config = server_config_elem.attrib
+            download = download_elem.attrib
+            upload = upload_elem.attrib
+            client = client_elem.attrib
 
         except AttributeError:
             try:
@@ -1368,7 +1342,7 @@ class Speedtest(object):
         for server in servers:
             cum = []
             url = os.path.dirname(server["url"])
-            stamp = int(timeit.time.time() * 1000)
+            stamp = int(time.time() * 1000)
             latency_url = "%s/latency.txt?x=%s" % (url, stamp)
             for i in range(0, 3):
                 this_latency_url = "%s.%s" % (latency_url, i)
@@ -1455,7 +1429,7 @@ class Speedtest(object):
                     shutdown_event=self._shutdown_event,
                 )
                 while in_flight["threads"] >= max_threads:
-                    timeit.time.sleep(0.001)
+                    time.sleep(0.001)
                 thread.start()
                 q.put(thread, True)
                 in_flight["threads"] += 1
@@ -1548,7 +1522,7 @@ class Speedtest(object):
                     shutdown_event=self._shutdown_event,
                 )
                 while in_flight["threads"] >= max_threads:
-                    timeit.time.sleep(0.001)
+                    time.sleep(0.001)
                 thread.start()
                 q.put(thread, True)
                 in_flight["threads"] += 1
@@ -1625,7 +1599,7 @@ def printer(string, quiet=False, debug=False, error=False, **kwargs):
         kwargs["file"] = sys.stderr
 
     if not quiet:
-        print_(out, **kwargs)
+        print(out, **kwargs)
 
 
 @app.command()
@@ -1658,7 +1632,7 @@ def shell(
     ),
     mini: Optional[str] = typer.Option(None, help="URL of the Speedtest Mini server"),
     source: Optional[str] = typer.Option(None, help="Source IP address to bind to"),
-    timeout: float = typer.Option(10.0, help="HTTP timeout in seconds. Default 10"),
+    timeout: int = typer.Option(10, help="HTTP timeout in seconds. Default 10"),
     secure: bool = typer.Option(
         False,
         help="Use HTTPS instead of HTTP when communicating with speedtest.net operated servers",
@@ -1717,16 +1691,18 @@ def shell(
         try:
             speedtest.get_servers(servers=server, exclude=exclude)
         except NoMatchedServers:
-            raise SpeedtestCLIError(
-                "No matched servers: %s" % ", ".join("%s" % s for s in server)
-            )
+            if not server or not all(isinstance(s, str) for s in server):
+                raise SpeedtestCLIError("Invalid server list provided.")
+
+            matched_servers = ", ".join(map(str, server))
+            raise SpeedtestCLIError(f"No matched servers: {matched_servers}")
         except (ServersRetrievalError,) + HTTP_ERRORS:
             printer("Cannot retrieve speedtest server list", error=True)
             raise SpeedtestCLIError(get_exception())
         except InvalidServerIDType:
             raise SpeedtestCLIError(
                 "%s is an invalid server type, must "
-                "be an int" % ", ".join("%s" % s for s in server)
+                "be an int" % ", ".join("%s" % s for s in server) if server else "be an int"
             )
 
         if server and len(server) == 1:
