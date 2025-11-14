@@ -13,6 +13,9 @@ meta-data:
     - benchmarking
     - speed
     - testing-tool
+    - uv
+    - uv tool
+    - typer
   description: |
     A simple command-line tool to test your internet speed.
   license: mit
