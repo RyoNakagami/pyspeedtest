@@ -1,5 +1,5 @@
 ---
-author: "xxxxx"
+author: "Ryo Nakagami"
 date-modified: "2025-11-14"
 project: pyspeedtest
 ---

@@ -1,5 +1,10 @@
 # pyspeedtest
 
+This project is based on the original pyspeedtest by Matt Martz
+(licensed under the Apache License, Version 2.0).
+
+Modifications and additional features © 2025 Ryo Nakagami.
+
 ## Description
 
 `pyspeedtest` is a command-line tool for testing internet bandwidth using speedtest.net.
