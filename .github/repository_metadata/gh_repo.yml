@@ -3,7 +3,7 @@ meta-data:
   visibility: public
   org-name: RyoNakagami
   tag:
-    - Python
+    - python
     - speedtest
     - cli
     - command-line
@@ -14,7 +14,7 @@ meta-data:
     - speed
     - testing-tool
     - uv
-    - uv tool
+    - uv-tool
     - typer
   description: |
     A simple command-line tool to test your internet speed.
