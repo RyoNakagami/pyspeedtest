@@ -1,0 +1,18 @@
+meta-data:
+  repository_name: pyspeedtest
+  visibility: public
+  org-name: RyoNakagami
+  tag:
+    - Python
+    - speedtest
+    - cli
+    - command-line
+    - internet-speed
+    - network
+    - testing
+    - benchmarking
+    - speed
+    - testing-tool
+  description: |
+    A simple command-line tool to test your internet speed.
+  license: mit
